@@ -45,3 +45,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Nova runtime data (personal — never commit)
+nova_memory.json
+uploads/

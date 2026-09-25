@@ -35,10 +35,17 @@ except ImportError:
     DOCX_AVAILABLE = False
     print("Warning: python-docx not available. DOCX processing will be disabled.")
 
+# Load settings from a .env file if python-dotenv is installed
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 app = Flask(__name__)
 
 # Flask app configuration
-app.config['SECRET_KEY'] = secrets.token_hex(16)
+app.config['SECRET_KEY'] = os.environ.get('NOVA_SECRET_KEY') or secrets.token_hex(32)
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_FILE_DIR'] = './flask_session'
 app.config['SESSION_PERMANENT'] = True
@@ -92,13 +99,22 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'}
 ALLOWED_DOCUMENT_EXTENSIONS = {'pdf', 'docx', 'doc', 'txt', 'md'}
 
-# Login credentials - change these to something secure
-USER_CREDENTIALS = {
-    'admin': 'admin123'
-}
+# Login credentials come from environment variables (see .env.example).
+# If no password is set, a random one is generated and printed at startup.
+NOVA_USERNAME = os.environ.get('NOVA_USERNAME', 'admin')
+NOVA_PASSWORD = os.environ.get('NOVA_PASSWORD')
+if not NOVA_PASSWORD:
+    NOVA_PASSWORD = secrets.token_urlsafe(12)
+    print(f"🔐 NOVA_PASSWORD not set. Generated password for this run: {NOVA_PASSWORD}")
+
+def check_credentials(username, password):
+    """Constant-time comparison so login timing doesn't leak information"""
+    user_ok = secrets.compare_digest(str(username or '').encode('utf-8'), NOVA_USERNAME.encode('utf-8'))
+    pass_ok = secrets.compare_digest(str(password or '').encode('utf-8'), NOVA_PASSWORD.encode('utf-8'))
+    return user_ok and pass_ok
 
 # Where Ollama is running
-OLLAMA_API_URL = 'http://localhost:11434'
+OLLAMA_API_URL = os.environ.get('OLLAMA_API_URL', 'http://localhost:11434')
 
 # Global model cache — loaded once at startup, refreshed on demand
 _models_cache = []
@@ -207,7 +223,7 @@ MODE_CONFIG = {
     'expert': {
         'num_models': 'all',
         'strategy': 'voting',
-        'description': 'All available models vote on the answer'
+        'description': 'All available models answer in parallel; responses shown together'
     }
 }
 
@@ -1264,11 +1280,11 @@ def index():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
         username = data.get('username')
         password = data.get('password')
         
-        if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
+        if check_credentials(username, password):
             session['user'] = username
             init_chat_session()
             return jsonify({'success': True})
@@ -2131,4 +2147,7 @@ if __name__ == '__main__':
     get_cached_models()
     router.load_available_models()
     print("✅ Ready")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    debug = os.environ.get('NOVA_DEBUG', '0') == '1'
+    host = os.environ.get('NOVA_HOST', '127.0.0.1')
+    port = int(os.environ.get('NOVA_PORT', '5000'))
+    app.run(debug=debug, host=host, port=port)

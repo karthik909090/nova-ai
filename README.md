@@ -1,6 +1,6 @@
 # 🌟 Nova — Local AI Chat with Intelligent Model Routing
 
-> **Run multiple local LLMs through one sleek interface. Nova automatically picks the best model for each task — no cloud, no API keys, no data leaving your machine.**
+> **Run multiple local LLMs through one interface. Nova picks a suitable model for each task — no cloud, no API keys, no data leaving your machine.**
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python)
 ![Flask](https://img.shields.io/badge/Flask-3.x-lightgrey?logo=flask)
@@ -11,66 +11,57 @@
 
 ## ✨ What is Nova?
 
-Nova is a self-hosted AI chat application that connects to [Ollama](https://ollama.ai) and intelligently routes your questions to the best available local model. Instead of picking a model yourself, Nova analyzes your message and selects the right tool automatically — coding questions go to coding models, creative writing goes to creative models, and so on.
+Nova is a self-hosted chat application that connects to [Ollama](https://ollama.com) and routes each message to a suitable local model. Instead of choosing a model yourself, Nova classifies your request with a small, fast router model and sends it to the best match from the models you have installed: coding questions go to coding models, creative writing to general-purpose models, and so on.
 
-**Everything runs 100% locally. Your conversations never leave your machine.**
+**Everything runs locally. Your conversations never leave your machine.**
 
 ---
 
 ## 🚀 Features
 
-- **🧠 Smart Model Router** — Nova uses a small fast model (Gemma 3 4B) to analyze your request and pick the optimal model from your installed collection
-- **⚡ 4 Response Modes**
-  - `Quick` — Fastest response with the smallest available model
-  - `Balanced` — AI-routed to the best model for the task *(recommended)*
-  - `Deep` — 3 models in parallel for diverse perspectives
-  - `Expert` — All models vote on the best answer
-- **📸 Vision Support** — Upload images and chat with multimodal models (LLaVA, Pixtral, Qwen2-VL, Llama 3.2 Vision)
-- **📄 Document Upload** — Attach PDFs, DOCX, TXT, and Markdown files for analysis
-- **🗂️ Long-Term Memory** — Nova learns your preferences and personal context across sessions
-- **💬 Streaming Responses** — Real-time token-by-token streaming just like ChatGPT
-- **🔐 Session Auth** — Simple login system to protect your local instance
-- **🌙 Dark Mode UI** — Clean, responsive chat interface inspired by modern AI assistants
+- **🧠 Model router** — a small model (Gemma 3 4B by default) classifies each request and selects a model from your installed collection. If the router is unavailable or too slow, Nova falls back to keyword detection.
+- **⚡ Four response modes**
+  - `Quick` — one fast model, lowest latency
+  - `Balanced` — one model chosen by the router *(recommended)*
+  - `Deep` — three models answer in parallel; their responses are combined for comparison
+  - `Expert` — every installed model answers in parallel; responses are shown side by side, with a simple check for whether they agree exactly
+- **📸 Vision support** — upload images and chat with multimodal models (LLaVA, Pixtral, Qwen2-VL, Llama 3.2 Vision)
+- **📄 Document upload** — attach PDF, DOCX, TXT and Markdown files for analysis
+- **🗂️ Long-term memory** — Nova stores simple preferences and facts you share across sessions, in a local `nova_memory.json` file
+- **💬 Streaming responses** — token-by-token output
+- **🔐 Login** — credentials set through environment variables, compared in constant time
 
 ---
 
-## 🧠 How Model Routing Works
+## 🧠 How model routing works
 
 ```
-User Message → Nova Router (Gemma 3 4B) → Task Classification
-                                              │
-              ┌───────────────────────────────┼──────────────────────────┐
-              │               │               │              │            │
-           coding           math          creative        complex      general
-              │               │               │              │            │
-    qwen2.5-coder      qwen2.5:14b      llama3.1:8b    gpt-oss:20b   qwen2.5:7b
-    deepseek-coder      gpt-oss:20b     qwen2.5:7b     qwen2.5:14b   qwen2.5:14b
+User message → Router (Gemma 3 4B) → Task classification
+                                            │
+          ┌──────────────┬──────────────┬───┴──────────┬──────────────┐
+       coding          math         creative        complex        general
+          │              │              │              │              │
+  qwen2.5-coder     qwen2.5:14b    llama3.1:8b    gpt-oss:20b    qwen2.5:7b
+  deepseek-coder    gpt-oss:20b    qwen2.5:7b     qwen2.5:14b    qwen2.5:14b
 ```
 
-Nova falls back to keyword detection if the router model is unavailable or too slow.
+Only models you have pulled are considered, so routing adapts to your installation.
 
 ---
 
 ## 📋 Requirements
 
 - Python 3.10+
-- [Ollama](https://ollama.ai) running locally on `http://localhost:11434`
-- At least one model pulled via `ollama pull <model>`
+- [Ollama](https://ollama.com) running locally (default `http://localhost:11434`)
+- At least one model pulled with `ollama pull <model>`
 
-### Recommended Models to Get Started
+Suggested starting set:
 
 ```bash
-# Fast & general purpose
-ollama pull qwen2.5:7b-instruct
-
-# Coding
-ollama pull qwen2.5-coder:7b
-
-# Vision (images)
-ollama pull llava:7b
-
-# Nova's router (required for AI routing)
-ollama pull gemma3:4b
+ollama pull gemma3:4b             # router (needed for AI routing)
+ollama pull qwen2.5:7b-instruct   # general purpose
+ollama pull qwen2.5-coder:7b      # coding
+ollama pull llava:7b              # images
 ```
 
 ---
@@ -79,87 +70,93 @@ ollama pull gemma3:4b
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/yourusername/nova.git
-cd nova
+git clone https://github.com/karthik909090/nova-ai.git
+cd nova-ai
 
 # 2. Create a virtual environment
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
 # 3. Install dependencies
-pip install flask flask-session requests Pillow PyPDF2 python-docx
+pip install -r requirements.txt
 
-# 4. Make sure Ollama is running
+# 4. Create your settings file and set a password
+cp .env.example .env             # Windows: copy .env.example .env
+#    then edit .env and set NOVA_PASSWORD
+
+# 5. Make sure Ollama is running, then start Nova
 ollama serve
-
-# 5. Run Nova
 python app.py
 ```
 
-Open **http://localhost:5000** and log in with:
-- **Username:** `admin`
-- **Password:** `admin123`
-
-> ⚠️ Change the credentials in `app.py` before exposing to a network.
+Open **http://localhost:5000** and log in with the username and password from your `.env` file. If you didn't set `NOVA_PASSWORD`, Nova generates a random password and prints it in the terminal at startup.
 
 ---
 
-## 📦 Project Structure
+## ⚙️ Configuration
+
+All settings live in `.env` (see `.env.example`). The `.env` file is ignored by git.
+
+| Variable | Default | Description |
+|---|---|---|
+| `NOVA_USERNAME` | `admin` | Login username |
+| `NOVA_PASSWORD` | *(random, printed at startup)* | Login password |
+| `NOVA_SECRET_KEY` | *(random per run)* | Signs sessions. Set it to stay logged in across restarts |
+| `OLLAMA_API_URL` | `http://localhost:11434` | Ollama endpoint |
+| `NOVA_HOST` | `127.0.0.1` | Interface to listen on |
+| `NOVA_PORT` | `5000` | Port |
+| `NOVA_DEBUG` | `0` | Flask debug mode (`1` to enable) |
+
+The router model (`NOVA_ROUTER_MODEL`) and model-cache refresh time (`MODELS_CACHE_TTL`) can be changed in `app.py`.
+
+---
+
+## 🔒 Security notes
+
+- Nova listens on **localhost only** by default. To reach it from other machines, set `NOVA_HOST=0.0.0.0` deliberately and use a strong password.
+- **Never enable `NOVA_DEBUG` on a network-reachable host.** Flask's debugger allows code execution.
+- `nova_memory.json`, `uploads/` and `flask_session/` can contain personal information from your chats. They are git-ignored; keep them that way.
+- Nova is designed for a single user on a trusted machine. It is not hardened for public internet deployment.
+
+---
+
+## 📦 Project structure
 
 ```
-nova/
-├── app.py              # Main Flask application & routing logic
+nova-ai/
+├── app.py              # Flask application, router and model orchestration
 ├── static/
 │   ├── css/styles.css  # Dark-mode UI styles
 │   └── js/app.js       # Frontend chat logic (streaming, file upload)
 ├── templates/
 │   ├── index.html      # Main chat interface
 │   └── login.html      # Login page
-├── flask_session/      # Server-side session storage
-└── nova_memory.json    # Long-term memory (auto-created)
+├── .env.example        # Settings template (copy to .env)
+├── requirements.txt
+└── LICENSE
 ```
 
----
-
-## ⚙️ Configuration
-
-Edit `app.py` to customize:
-
-| Setting | Default | Description |
-|---|---|---|
-| `USER_CREDENTIALS` | `admin:admin123` | Login credentials |
-| `OLLAMA_API_URL` | `http://localhost:11434` | Ollama endpoint |
-| `NOVA_ROUTER_MODEL` | `gemma3:4b` | Model used for task routing |
-| `MODELS_CACHE_TTL` | `60` | Seconds before model list refreshes |
+Created at runtime (git-ignored): `flask_session/`, `uploads/`, `nova_memory.json`.
 
 ---
 
 ## 🗺️ Roadmap
 
-- [ ] Multi-user support with individual memory
-- [ ] RAG (Retrieval-Augmented Generation) with local vector DB
-- [ ] Model performance analytics dashboard
-- [ ] REST API for external integrations
+- [ ] Real answer aggregation for Expert mode (judge model or majority voting)
+- [ ] Evaluate routing accuracy against a labelled set of prompts
+- [ ] Multi-user support with separate memory
+- [ ] Retrieval-augmented generation with a local vector database
 - [ ] Docker Compose setup
 - [ ] Conversation export (JSON / Markdown)
 
 ---
 
-## 🤝 Contributing
+## 👤 Author
 
-Pull requests are welcome! For major changes, please open an issue first.
+**Karthik Shivakumar** — [github.com/karthik909090](https://github.com/karthik909090)
 
-1. Fork the repo
-2. Create your feature branch: `git checkout -b feature/my-feature`
-3. Commit your changes: `git commit -m 'Add my feature'`
-4. Push and open a PR
-
----
+Issues and pull requests are welcome.
 
 ## 📄 License
 
-MIT — do whatever you want, just keep the attribution.
-
----
-
-*Built with Flask + Ollama. No cloud. No tracking. Just local AI.*
+MIT — see [LICENSE](LICENSE).
